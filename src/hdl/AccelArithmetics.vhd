@@ -28,6 +28,7 @@
 --
 -- Revision: 
 -- Revision 0.01 - File Created
+-- Revision 0.02 - (07/07/17 - ArtVVB) Fixed an issue where all negative Y axis accelerometer values were clipped to the positive maximum  
 -- Additional Comments: 
 --
 ----------------------------------------------------------------------------------
@@ -95,9 +96,6 @@ constant SUM_FACTOR : std_logic_vector (12 downto 0) :=  '0' & X"7FF"; --2047
 constant LOWER_ACC_BOUNDARY : std_logic_vector (9 downto 0) := "00" & X"FF"; -- 255
 constant UPPER_ACC_BOUNDARY : std_logic_vector (9 downto 0) := "10" & X"FF"; -- 767
 
--- Invert Y axis data in order to display it on the screen correctly
-signal ACCEL_Y_IN_INV : STD_LOGIC_VECTOR (11 downto 0);
-
 signal ACCEL_X_SUM : std_logic_vector (12 downto 0) := (others => '0'); -- one more bit to keep the sign extension
 signal ACCEL_Y_SUM : std_logic_vector (12 downto 0) := (others => '0');
 
@@ -126,11 +124,6 @@ signal m_axis_dout_tdata: std_logic_vector (15 downto 0);
 
 begin
 
--- Invert Accel_Y data to display on the screen the box movement 
--- on the Y axis according to the board movement
-ACCEL_Y_IN_INV <= (NOT ACCEL_Y_IN) + X"001";
-
-
 -- Add 2047 to the incoming acceleration data
 -- Therefore ACCEL_X_SUM and ACCEL_Y_SUM will be scaled to 
 -- -2g = 0, -1g = 1023, 0g = 2047, 1g = 3071, 2g = 4095
@@ -147,10 +140,10 @@ begin
             ACCEL_X_SUM <= ('0' & ACCEL_X_IN) + SUM_FACTOR;
          end if;
          
-         if ACCEL_Y_IN_INV(11) = '1' then -- if negative, keep the sign extension
-            ACCEL_Y_SUM <= ('1' & ACCEL_Y_IN_INV) + SUM_FACTOR;
+         if ACCEL_Y_IN(11) = '1' then -- if negative, keep the sign extension
+            ACCEL_Y_SUM <= ('1' & ACCEL_Y_IN) + SUM_FACTOR;
          else
-            ACCEL_Y_SUM <= ('0' & ACCEL_Y_IN_INV) + SUM_FACTOR;
+            ACCEL_Y_SUM <= ('0' & ACCEL_Y_IN) + SUM_FACTOR;
 
          end if;
       end if;
@@ -191,7 +184,9 @@ end process Accel_Clip;
  
 -- ACCEL_X_CLIP and ACCEL_Y_CLIP values (0-511) can be represented on 9 bits
 ACCEL_X_OUT <= ACCEL_X_CLIP(8 downto 0);
-ACCEL_Y_OUT <= ACCEL_Y_CLIP(8 downto 0);
+-- Invert ACCEL_Y_CLIP data to display on the screen the box movement 
+-- on the Y axis according to the board movement
+ACCEL_Y_OUT <= (NOT ACCEL_Y_CLIP(8 downto 0)) + "000000001";
 
 -- Pipe Data_Ready
 Pipe_Data_Ready : process (SYSCLK, RESET, Data_Ready, Data_Ready_0)
